@@ -23,6 +23,9 @@ class ToolBox(ProxyObj):
     @property        
     def playerPos(self):
         return self.player_state(self.id_team, self.id_player).position
+    @property
+    def pos_millieu(self):
+        return Vector2D(GAME_WIDTH/2,GAME_HEIGHT/2)
     @property     
     def ballPos(self):
         return self.ball.position
@@ -54,8 +57,19 @@ class ToolBox(ProxyObj):
         opp = [self.player_state(idteam, idplayer).position for idteam, idplayer in self.players if idteam != self.id_team]
         return opp
     @property
+    def ennemie_proche_ball(self):
+        opp = [self.player_state(idteam, idplayer).position for idteam, idplayer in self.players if idteam != self.id_team]
+        
+        min=1000000000
+	for e in opp:
+	   dist=self.ballPos.distance(e)
+           if dist < min:
+	      min=dist
+	      pos=e
+        return e    
+    @property
     def get_mate(self):
-        mate = [self.player_state(idteam,idplayer).position for idteam,idplayer in self.players if (idteam == self.id_team)]
+        mate = [self.player_state(idteam,idplayer).position for idteam,idplayer in self.players if (idteam == self.id_team and idplayer!=self.id_player)]
         return mate
     @property    
     def mateMostCloseDistance(self):
@@ -65,8 +79,19 @@ class ToolBox(ProxyObj):
             if self.playerPos!=mate:
                 if self.playerPos.distance(mate)<DistMin:
                     DistMin=self.playerPos.distance(mate)
+	            
         return DistMin
 
+    @property    
+    def position_ennemie_plus_proche(self):
+        mates= self.get_mate
+        DistMin = GAME_WIDTH*2
+        for mate in mates:
+            if self.playerPos!=mate:
+                if self.playerPos.distance(mate)<DistMin:
+                    DistMin=self.playerPos.distance(mate)
+	            pos=mate
+        return pos - self.playerPos
 
 ########################################################################################################
 # Boolean Function
@@ -145,9 +170,12 @@ class Comportement(ProxyObj):
         raise(NotImplementedError)
     def passToMostCloseMate(self):
         raise(NotImplementedError)
+    def bigshoot(self):
+    	raise(NotImplementedError)
 
 def get_random_vec():
     return Vector2D.create_random(-1,1)
 
 def get_random_SoccerAction():
     return SoccerAction(get_random_vec(),get_random_vec())
+

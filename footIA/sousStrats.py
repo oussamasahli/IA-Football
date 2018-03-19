@@ -2,17 +2,36 @@ from soccersimulator import Vector2D, SoccerState, SoccerAction, Ball
 from soccersimulator import Strategy
 from soccersimulator.settings import *
 from .tools import ToolBox, Comportement, ProxyObj
+from math import acos 
 
 class Comportements(Comportement):
 
     RUN_COEF = maxPlayerAcceleration
     GO_COEF = maxPlayerAcceleration/3.
     COEF_DRIBLE= 0.5
+    BIG_SHOOT_COEF = 2
     SHOOT_COEF = maxPlayerShoot/3.
-    THROW_COEF = maxPlayerShoot
-
+    THROW_COEF = 4
+    RUN_TEST = 1
     def __init__(self,state):
         super(Comportements,self).__init__(state)
+
+    def angle_tire(self):
+	u=self.position_ennemie_plus_proche
+	v=self.vecTheirGoal
+	scalaire= (u.x*v.x)+(u.y*v.y)
+	produit_norme= (u.norm*v.norm)
+	cos_angle=(scalaire/produit_norme)
+	angle= acos(cos_angle)
+	return angle
+     
+    def esquive(self):
+        Vect_ennemi_proche=self.position_ennemie_plus_proche
+	   
+        new=Vect_ennemi_proche.scale(1.5)
+	return SoccerAction( new.normalize())
+        
+    
     
     def run(self,p):
         return SoccerAction(acceleration=(p-self.playerPos).normalize()*self.RUN_COEF)
@@ -20,11 +39,17 @@ class Comportements(Comportement):
     def go(self,p):
         return SoccerAction(acceleration=(p-self.playerPos).normalize()*self.GO_COEF)
     
-    def shoot(self, acc=0.64):
+    def shoot(self, acc):
         if self.canShoot:
-            return SoccerAction(shoot=(self.vecTheirGoal -self.ballPos).normalize()*acc)
-        return SoccerAction()
+    		return SoccerAction(shoot=(self.vecTheirGoal -self.ballPos).normalize()*acc)
+    	return SoccerAction()
 
+    def bigshoot(self):
+    	if self.canShoot:
+    		return SoccerAction(shoot=(self.vecTheirGoal -self.ballPos).normalize()*self.BIG_SHOOT_COEF)
+    	return SoccerAction()
+
+        
     def degage(self):
         if self.canShoot:
             return SoccerAction(shoot=(self.vecTheirGoal -self.ballPos)*self.THROW_COEF)
@@ -62,20 +87,22 @@ class Comportements(Comportement):
             return SoccerAction(acceleration= (Vector2D((self.id_team-1)*self.width/2 + self.width/5, (self.height)/2)
                 - self.playerPos).normalize()*self.RUN_COEF)
 
-
     def runBallPredicted(self, n=0):
-        pos_ball = self.ballPos
-        speed_ball = self.ballSpeed
-        ball_predict = Ball(pos_ball, speed_ball)
         
-        while(n > 0):
-            ball_predict.next(Vector2D(0,0))
-            pos_ball = ball_predict.position
-            n = n - 1
-    
-        vec_ball = pos_ball - self.playerPos
+        pos_ball = self.ballSpeed
+        pos_ball.scale(n)
+	pos_ball_2=self.ballPos + pos_ball
+	return SoccerAction(pos_ball_2 - self.playerPos)
+	
+    def runTest(self):
         
-        return SoccerAction(acceleration=vec_ball*3)
+        pos_ball = self.ballSpeed
+        pos_ball.scale(self.RUN_TEST)
+	pos_ball_2=self.ballPos + pos_ball
+	return SoccerAction(pos_ball_2 - self.playerPos)
+	
+        
+        
 
 
     def passToMostCloseMate(self, coop):
@@ -97,7 +124,7 @@ class ConditionGoal(ProxyObj):
         super(ConditionGoal,self).__init__(state)
 
     def inGoalZone(self):
-        return (self.myGoalBall_distance<40)
+        return (self.myGoalBall_distance<75)
 
     def inGoal(self):
         coordx= self.playerPos.x
@@ -121,18 +148,39 @@ class ConditionDribleur(ProxyObj):
                 return True
         return False
 
+    def dribleur_peut_aller_vers_balle(self):
+	return self.myGoalBall_distance > 50
+	
+
     def close_ball(self):
         return self.playerPos.distance(self.ballPos)<self.COEF_BALL*self.width
 
     def close_goal(self):
-        return self.playerPos.distance(self.vecTheirGoal)<self.COEF_DISTMIN
+        return self.playerPos.distance(self.vecTheirGoal)<self.width/2.91
+
+    def proche_goal(self,coeff):
+	return self.playerPos.distance(self.vecTheirGoal) < self.width/(coeff)
+   
+    def ditance_test(self):
+	return self.playerPos.distance(self.ballPos) >= 30
+
+    def dist_ennemi_ball(self):
+	return self.ennemie_proche_ball >=10
 
 class ConditionAttaque(ProxyObj):
-    COEF_SHOOT = 0.3
-    def __init__(self,state):
+    def __init__(self, state, COEF_DIST=1):
         super(ConditionAttaque,self).__init__(state)
+        self.COEF_DIST = COEF_DIST	
     def close_goal(self):
-        return self.playerPos.distance(self.vecTheirGoal)<self.COEF_SHOOT*self.width
+        return self.playerPos.distance(self.vecTheirGoal) < self.width/self.COEF_DIST
+
+    def proche_goal(self,coeff):
+	return self.playerPos.distance(self.vecTheirGoal) < self.width/(coeff)
+
+    def fonceur_peut_aller_vers_balle(self):
+	return self.myGoalBall_distance > 50
+	
+   
 
 class ConditionPoly(ProxyObj):
     COEF_SHOOT = 0.3
@@ -153,9 +201,8 @@ class ConditionPoly(ProxyObj):
     def mateHaveBall(self, coop):
         mates=coop
         for mate in mates:
-            if mate!= self.playerPos:
-                if mate.distance(self.ballPos)< 40:
-                    return True
+            if mate.distance(self.ballPos)< 50:
+                return True
         return False
 
     def canPass(self):
@@ -166,13 +213,18 @@ class ConditionPoly(ProxyObj):
 
 
 def fonceur(I):
-    if not I.canShoot:
-        return I.run(I.ballPos)
-    else:
-        if I.close_goal():
-            return I.shoot(6)
-        return I.shoot(0.64)
+    
+        if not I.canShoot:
+            return I.run(I.ballPos)
+        else:
+            if I.proche_goal(2.4):
+               return I.shoot(5.0)
+            else:
+                return I.drible()
+    
 
+
+   
 def versatile (I):
     mates= I.get_mate
     if I.inCamp():
@@ -188,8 +240,6 @@ def versatile (I):
                 if not I.canShoot:
                     return I.run(I.ballPos)
                 else:
-                    if I.canPass():
-                        return I.passToMostCloseMate(mates)
 
                     if I.close_goal():
                         return I.shoot(4)
@@ -199,30 +249,32 @@ def versatile (I):
 
 def dribleur(I):
 
-    if  I.close_opp():
-        if I.canShoot:
-            return I.shoot(2)
-        else: 
-            return I.runBallPredicted(10)
-    else:
-        if I.canShoot:
-            if I.close_goal():
-                return I.shoot(8)
+    if I.dist_ennemi_ball() :
+	if not I.proche_goal(2.4): 
+	   if I.canShoot:
+	      return I.shoot(0.5)
+           else:
+	      
+	          return I.runBallPredicted(5)
+	else:
+            if I.canShoot:
+               return I.shoot(5.0)
             else:
-                return I.drible() 
+                
+               return I.runBallPredicted(5) 
+  
 
-        else:
-            return I.runBallPredicted(10)
-
+ 
 
 def goal(I):
     if I.inGoalZone():
         if I.canShoot:
-            return I.degage()
+               return I.degage()
         else:
-            return I.run(I.ballPos)
+            return I.runBallPredicted(4)
     else:
         if not I.inGoal():
             return I.returnToGoal()
         else:
             return None
+

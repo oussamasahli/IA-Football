@@ -18,6 +18,7 @@ class FonceurStrategy(Strategy):
         I = ConditionAttaque(Comportements(ToolBox(state,id_team,id_player)))
         return fonceur(I)
 
+
 class GoalStrategy(Strategy):
     def __init__(self):
         Strategy.__init__(self, "Goal")
@@ -26,11 +27,18 @@ class GoalStrategy(Strategy):
         return goal(I)
 
 class DribleStrategy(Strategy):
-    def __init__(self):
+    def __init__(self, drible=None, run=None):
         Strategy.__init__(self, "Dribleur")
+	self.drible = drible
+	self.run = run
     def compute_strategy(self,state,id_team,id_player):
-        I = ConditionDribleur(Comportements(ToolBox(state,id_team,id_player)))
+	C=Comportements(ToolBox(state,id_team,id_player))
+        I = ConditionDribleur(C)
+	C.RUN_TEST = self.run
+	C.COEF_DRIBLE = self.drible
         return dribleur(I)
+
+
 
 class MultipurposeStrategy(Strategy):
     def __init__(self):
@@ -40,12 +48,17 @@ class MultipurposeStrategy(Strategy):
         return versatile(I)
 
 class FonceurTestStrategy(Strategy):
-    def __init__(self, strength=None):
+    def __init__(self, drible=None, run=None):
         Strategy.__init__(self,"Fonceur")
-        self.strength = strength
+
+	self.drible = drible
+	self.run = run
     def compute_strategy(self,state,id_team,id_player):
         C = Comportements(ToolBox(state,id_team,id_player))
-        if self.strength:
-            C.SHOOT_COEF = self.strength
+	C.RUN_COEF = self.run
+	C.COEF_DRIBLE = self.drible
         I = ConditionAttaque(C)
         return fonceur(I)
+
+
+
