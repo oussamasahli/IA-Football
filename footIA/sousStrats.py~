@@ -239,12 +239,10 @@ STRATEGIES : CONDITIONS AND COMPORTMENTS
 """
 
 def fonceur(I):
-    
-        if I.canShoot:
-            return I.shoot(6)
-        else:
-            return I.runBallPredicted(5)
-
+    if I.canShoot:
+        return I.shoot(6)
+    else:
+        return I.runBallPredicted(5)
 
 
 def versatile (I):

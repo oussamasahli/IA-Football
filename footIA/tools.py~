@@ -33,9 +33,6 @@ class ToolBox(ProxyObj):
     def ballSpeed(self):
         return self.ball.vitesse
     @property
-    def pos_mil(self):
-        return Vector2D(GAME_WIDTH/2,GAME_HEIGHT/2)
-    @property
     def mySpeed(self):
         return self.player_state(self.id_team, self.id_player).vitesse
     def playerSpeed(self, player):
